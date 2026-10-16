@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Event Ticketing Public Page</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .header {
+            background-color: #4CAF50;
+            color: white;
+            padding: 20px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .content {
+            background-color: white;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .test-info {
+            background-color: #e8f5e8;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🎫 Event Ticketing System</h1>
+        <p>Publicly accessible page - no authentication required</p>
+    </div>
+
+    <div class="content">
+        <h2>Static File Serving Test</h2>
+        <p>This page is served directly from the <code>public/</code> directory by the HTTP server.</p>
+
+        <div class="test-info">
+            <h3>Build 3 Implementation Features:</h3>
+            <ul>
+                <li>✅ Layered architecture (Presentation → Application → Domain → Data)</li>
+                <li>✅ State machine for booking lifecycle (pending, paid, cancelled, refunded, checked_in)</li>
+                <li>✅ HTTP router with path parameters</li>
+                <li>✅ RESTful API with /health endpoint</li>
+                <li>✅ Static file serving from public/ directory</li>
+                <li>✅ Comprehensive error handling</li>
+                <li>✅ Security against path traversal</li>
+            </ul>
+        </div>
+
+        <div class="test-info">
+            <h3>Architecture Documentation:</h3>
+            <p>All architecture diagrams and documentation are available in <code>docs/architecture.md</code>.</p>
+        </div>
+
+        <div class="test-info">
+            <h3>State Machine States:</h3>
+            <ul>
+                <li><strong>Pending:</strong> Initial booking state</li>
+                <li><strong>Paid:</strong> After successful payment</li>
+                <li><strong>Checked In:</strong> At the venue</li>
+                <li><strong>Cancelled:</strong> User cancellation</li>
+                <li><strong>Refunded:</strong> After refund processed</li>
+            </ul>
+        </div>
+
+        <p><em>This file demonstrates that the HTTP server can serve static files securely from the public directory without path traversal vulnerabilities.</em></p>
+    </div>
+</body>
+</html>

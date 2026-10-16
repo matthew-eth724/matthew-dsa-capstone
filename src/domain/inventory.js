@@ -145,6 +145,43 @@ export function joinWaitlist(store, tierId, userId, quantity) {
   return { position: queue.size };
 }
 
+export function publishEvent(store, eventId) {
+  const event = store.events.get(eventId);
+  if (!event) throw new DomainError('NOT_FOUND', 'Event not found');
+  if (event.status !== 'draft') {
+    throw new DomainError('INVALID_STATE', 'Only draft events can be published');
+  }
+  const hasTiers = event.tierIds.length > 0;
+  if (!hasTiers) {
+    throw new DomainError('INVALID_STATE', 'Cannot publish an event with no ticket tiers');
+  }
+  event.status = 'published';
+  return event;
+}
+
+export function listEventSummaries(store, options = {}) {
+  const { publishedOnly = true } = options;
+  const summaries = [];
+  for (const event of store.events.values()) {
+    if (publishedOnly && event.status !== 'published') continue;
+    const tiers = event.tierIds.map((tierId) => store.tiers.get(tierId)).filter((tier) => tier);
+    const cheapestTier = tiers.sort((a, b) => a.priceCents - b.priceCents)[0];
+    summaries.push({
+      id: event.id,
+      title: event.title,
+      city: event.city,
+      venue: event.venue,
+      startsAt: event.startsAt,
+      status: event.status,
+      cheapestPriceCents: cheapestTier ? cheapestTier.priceCents : undefined,
+      totalSeats: tiers.reduce((sum, tier) => sum + tier.capacity, 0),
+      availableSeats: tiers.reduce((sum, tier) => sum + seatsLeft(tier), 0),
+      tierCount: tiers.length,
+    });
+  }
+  return summaries;
+}
+
 // Strict first-in-first-out: only the person at the head of the line is considered.
 // Discussion question for class: what happens if the head wants 4 seats and only 1 is free?
 export function offerNextOnWaitlist(store, tierId) {
