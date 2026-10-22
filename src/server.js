@@ -1,6 +1,6 @@
 // Main server file for Event Ticketing capstone
 import App from './http/app.js';
-import { getConfig } from './config.js';
+import { getConfig, updateConfig } from './config.js';
 
 // Server class
 class Server {
@@ -18,6 +18,9 @@ class Server {
     }
 
     try {
+      // Add health check endpoint
+      this.app.add('GET', '/health', () => ({ status: 'ok' }));
+
       // Start the application
       this.app.start(this.config.port);
 
@@ -67,7 +70,7 @@ class Server {
 
   // Update configuration
   updateConfig(updates) {
-    this.config = require('./config').updateConfig(updates);
+    this.config = updateConfig(updates);
   }
 
   // Get configuration

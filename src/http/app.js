@@ -189,6 +189,37 @@ class App {
     const url = new URL(request.url, `http://localhost:${this.serverPort}`);
     let path = url.pathname;
 
+    // Check router for registered routes first (e.g., /health)
+    const route = this.router.get(request.method, path);
+    if (route) {
+      const params = route.extractRequestParams(path);
+      const query = Object.fromEntries(url.searchParams);
+      const requestContext = {
+        method: request.method,
+        path,
+        params,
+        query,
+        response,
+        request,
+      };
+      try {
+        const result = route.handler(requestContext);
+        if (result && typeof result.then === 'function') {
+          result.then(responseData => {
+            this.sendResponse(response, responseData);
+          }).catch(error => {
+            this.handleError(error, response);
+          });
+        } else {
+          this.sendResponse(response, result);
+        }
+        return;
+      } catch (error) {
+        this.handleError(error, response);
+        return;
+      }
+    }
+
     // Remove leading slash
     if (path === '/') {
       path = '/index.html';

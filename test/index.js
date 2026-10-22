@@ -1,6 +1,6 @@
 // Tests for Build 3 of Event Ticketing capstone
 
-import { describe, it } from 'node:test';
+import { describe, it, beforeEach } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { createStore, createEvent, addTier, publishEvent, bookTickets, cancelBooking, joinWaitlist, offerNextOnWaitlist, findBookingByReference, seatsLeft } from '../src/domain/inventory.js';
 import { canTransition, assertTransition, getPossibleTargets, getPossibleSources, isFinalState, getAllStates, getTransitions, isValidState } from '../src/domain/bookingStateMachine.js';
@@ -221,10 +221,10 @@ describe('HTTP Server', () => {
   let server;
   let app;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     // Import server and app modules fresh for each test
-    const serverModule = require('../src/server.js');
-    const appModule = require('../src/http/app.js');
+    const serverModule = await import('../src/server.js');
+    const appModule = await import('../src/http/app.js');
 
     server = new serverModule.Server();
     app = new appModule.default();
