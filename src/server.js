@@ -81,3 +81,9 @@ class Server {
 
 export default Server;
 export { Server };
+
+// Start server when run directly
+if (import.meta.url === `file://${process.argv[1]}`) {
+  const server = new Server();
+  await server.start();
+}
