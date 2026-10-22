@@ -12,5 +12,8 @@
     "benchmark": "node scripts/benchmark-lookup.js",
     "test": "node --test",
     "start": "node src/server.js"
+  },
+  "dependencies": {
+    "express": "^5.3.0"
   }
 }
