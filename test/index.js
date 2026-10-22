@@ -424,8 +424,10 @@ describe('Component Tests', () => {
     const app = new appModule.default();
     assert(app instanceof appModule.default);
 
-    // Test basic app functionality
+    // Test basic app functionality - Express app has use, get, post, etc.
     assert(app !== undefined);
-    assert(typeof app.route === 'function');
+    assert(typeof app.app.use === 'function');
+    assert(typeof app.app.get === 'function');
+    assert(typeof app.app.post === 'function');
   });
 });

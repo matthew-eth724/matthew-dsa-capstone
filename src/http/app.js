@@ -1,6 +1,5 @@
-// HTTP server for Event Ticketing capstone
-import { URL } from 'node:url';
-import { readFileSync } from 'node:fs';
+// Express HTTP server for Event Ticketing capstone
+import express from 'express';
 import { resolve } from 'node:path';
 import { Router, Route } from './router.js';
 
@@ -14,69 +13,98 @@ class AppError extends Error {
   }
 }
 
-// HTTP server class
+// Express server class
 class App {
   constructor() {
+    this.app = express();
     this.router = new Router();
     this.publicPath = resolve(process.cwd(), 'public');
+    this.serverPort = null;
+    
+    // Middleware
+    this.app.use(express.json());
+    this.app.use(express.urlencoded({ extended: true }));
+    
+    // Security headers
+    this.app.use((req, res, next) => {
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+      res.setHeader('X-Frame-Options', 'DENY');
+      res.setHeader('X-XSS-Protection', '1; mode=block');
+      next();
+    });
+    
+    this.setupRoutes();
   }
 
-  // Add a route
+  setupRoutes() {
+    // Health check endpoint
+    this.app.get('/health', (req, res) => {
+      res.json({ status: 'ok' });
+    });
+
+    // API routes - delegate to custom router
+    this.app.use('/api', (req, res, next) => {
+      // Parse path without /api prefix for router matching
+      const path = req.path;
+      const route = this.router.get(req.method, path);
+      if (!route) {
+        return res.status(404).json({ error: { code: 'NOT_FOUND', message: `Path ${path} not found` } });
+      }
+      
+      const params = route.extractRequestParams(path);
+      const query = req.query;
+      
+      const requestContext = {
+        method: req.method,
+        path,
+        params,
+        query,
+        response: res,
+        request: req,
+      };
+
+      try {
+        const result = route.handler(requestContext);
+        if (result && typeof result.then === 'function') {
+          result.then(responseData => {
+            res.json(responseData);
+          }).catch(error => {
+            this.handleError(error, res);
+          });
+        } else {
+          res.json(result);
+        }
+      } catch (error) {
+        this.handleError(error, res);
+      }
+    });
+
+    // Catch-all for unknown API paths
+    this.app.use('/api', (req, res) => {
+      res.status(404).json({ error: { code: 'NOT_FOUND', message: `Path ${req.path} not found` } });
+    });
+
+    // Static file serving from public/
+    this.app.use(express.static(this.publicPath, {
+      index: 'index.html',
+      fallthrough: true,
+    }));
+
+    // Error handling middleware
+    this.app.use((err, req, res, next) => {
+      this.handleError(err, res);
+    });
+  }
+
+  // Add a route to the custom router
   add(method, path, handler) {
     this.router.add(method, path, handler);
     return this;
   }
 
-  // Route handler
-  route(request, response) {
-    const { method, url } = request;
-    const parsedUrl = new URL(url, `http://localhost:${this.serverPort}`);
-    const pathname = parsedUrl.pathname;
-
-    // Find matching route
-    const route = this.router.get(method, pathname);
-    if (!route) {
-      this.handleNotFound(response, pathname);
-      return;
-    }
-
-    // Extract parameters
-    const params = route.extractRequestParams(pathname);
-    const query = Object.fromEntries(parsedUrl.searchParams);
-
-    // Prepare request context
-    const requestContext = {
-      method,
-      path: pathname,
-      params,
-      query,
-      response,
-      request,
-    };
-
-    try {
-      // Execute route handler
-      const result = route.handler(requestContext);
-
-      // Handle async handlers
-      if (result && typeof result.then === 'function') {
-        result.then(responseData => {
-          this.sendResponse(response, responseData);
-        }).catch(error => {
-          this.handleError(error, response);
-        });
-      } else {
-        this.sendResponse(response, result);
-      }
-    } catch (error) {
-      this.handleError(error, response);
-    }
-  }
-
   // Handle successful response
   sendResponse(response, data) {
-    response.writeHead(200, { 'Content-Type': 'application/json' });
-    response.end(JSON.stringify(data));
+    response.json(data);
   }
 
   // Handle not found error
@@ -108,71 +136,17 @@ class App {
 
   // Send error response
   sendErrorResponse(response, statusCode, code, message) {
-    response.writeHead(statusCode, { 'Content-Type': 'application/json' });
-    response.end(JSON.stringify({
+    response.status(statusCode).json({
       error: { code, message }
-    }));
-  }
-
-  // Serve static files
-  serveStatic(response, path) {
-    try {
-      const filePath = resolve(this.publicPath, path);
-      const content = readFileSync(filePath);
-
-      // Determine content type based on file extension
-      const contentType = this.getContentType(path);
-
-      response.writeHead(200, { 'Content-Type': contentType });
-      response.end(content);
-    } catch (error) {
-      if (error.code === 'ENOENT') {
-        this.handleNotFound(response, path);
-      } else {
-        this.handleError(error, response);
-      }
-    }
-  }
-
-  // Get content type based on file extension
-  getContentType(path) {
-    const ext = path.split('.').pop().toLowerCase();
-    const contentTypes = {
-      html: 'text/html',
-      css: 'text/css',
-      js: 'application/javascript',
-      json: 'application/json',
-      png: 'image/png',
-      jpg: 'image/jpeg',
-      jpeg: 'image/jpeg',
-      gif: 'image/gif',
-      svg: 'image/svg+xml',
-      ico: 'image/x-icon',
-      txt: 'text/plain',
-      md: 'text/markdown',
-    };
-
-    return contentTypes[ext] || 'text/plain';
+    });
   }
 
   // Start the server
   start(port) {
-    this.server = require('node:http').createServer((request, response) => {
-      // Handle different content types
-      const contentType = request.headers['content-type'] || '';
-
-      if (request.method === 'GET' || request.method === 'HEAD') {
-        this.handleStaticRequest(request, response);
-      } else {
-        this.handleApiRequest(request, response);
-      }
-    });
-
-    this.server.listen(port, () => {
+    this.serverPort = port;
+    this.server = this.app.listen(port, () => {
       console.log(`Server started on port ${port}`);
     });
-
-    this.serverPort = port;
 
     // Handle server errors
     this.server.on('error', (error) => {
@@ -180,85 +154,6 @@ class App {
         console.error(`Port ${port} is already in use`);
       } else {
         console.error('Server error:', error);
-      }
-    });
-  }
-
-  // Handle static file requests
-  handleStaticRequest(request, response) {
-    const url = new URL(request.url, `http://localhost:${this.serverPort}`);
-    let path = url.pathname;
-
-    // Check router for registered routes first (e.g., /health)
-    const route = this.router.get(request.method, path);
-    if (route) {
-      const params = route.extractRequestParams(path);
-      const query = Object.fromEntries(url.searchParams);
-      const requestContext = {
-        method: request.method,
-        path,
-        params,
-        query,
-        response,
-        request,
-      };
-      try {
-        const result = route.handler(requestContext);
-        if (result && typeof result.then === 'function') {
-          result.then(responseData => {
-            this.sendResponse(response, responseData);
-          }).catch(error => {
-            this.handleError(error, response);
-          });
-        } else {
-          this.sendResponse(response, result);
-        }
-        return;
-      } catch (error) {
-        this.handleError(error, response);
-        return;
-      }
-    }
-
-    // Remove leading slash
-    if (path === '/') {
-      path = '/index.html';
-    }
-
-    this.serveStatic(response, path.substring(1)); // Remove leading slash
-  }
-
-  // Handle API requests
-  handleApiRequest(request, response) {
-    const url = new URL(request.url, `http://localhost:${this.serverPort}`);
-    let path = url.pathname;
-
-    // Parse request body
-    let body = '';
-    request.on('data', (chunk) => {
-      body += chunk;
-    });
-
-    request.on('end', () => {
-      try {
-        // Validate JSON only for API routes
-        if (path.startsWith('/api/')) {
-          if (body) {
-            try {
-              JSON.parse(body);
-            } catch (error) {
-              this.handleBadJson(error, response);
-              return;
-            }
-          }
-
-          this.route(request, response);
-        } else {
-          // Static files don't have request bodies
-          this.route(request, response);
-        }
-      } catch (error) {
-        this.handleError(error, response);
       }
     });
   }
